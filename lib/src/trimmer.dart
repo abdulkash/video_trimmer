@@ -24,8 +24,7 @@ enum TrimmerEvent { initialized }
 /// - [saveTrimmedVideo()]
 /// - [videoPlaybackControl()]
 class Trimmer {
-  final StreamController<TrimmerEvent> _controller =
-      StreamController<TrimmerEvent>.broadcast();
+  StreamController<TrimmerEvent> _controller = StreamController<TrimmerEvent>.broadcast();
 
   VideoPlayerController? _videoPlayerController;
 
@@ -42,11 +41,15 @@ class Trimmer {
   ///
   /// Returns the loaded video file.
   Future<void> loadVideo({required File videoFile}) async {
+    await _controller.close();
+    _controller = StreamController<TrimmerEvent>.broadcast();
     currentVideoFile = videoFile;
     if (videoFile.existsSync()) {
       _videoPlayerController = VideoPlayerController.file(currentVideoFile!);
-      await _videoPlayerController!.initialize().then((_) {
+      await _videoPlayerController!.initialize().then((_) async {
         _controller.add(TrimmerEvent.initialized);
+        // await _controller.close();
+        debugPrint("Video Controller Initialized");
       });
     }
   }
@@ -76,8 +79,7 @@ class Trimmer {
     }
 
     // Directory + folder name
-    final Directory directoryFolder =
-        Directory('${directory!.path}/$folderName/');
+    final Directory directoryFolder = Directory('${directory!.path}/$folderName/');
 
     if (await directoryFolder.exists()) {
       // If folder already exists return path
@@ -86,8 +88,7 @@ class Trimmer {
     } else {
       debugPrint('Creating');
       // If folder does not exists create folder and then return its path
-      final Directory directoryNewFolder =
-          await directoryFolder.create(recursive: true);
+      final Directory directoryNewFolder = await directoryFolder.create(recursive: true);
       return directoryNewFolder.path;
     }
   }
@@ -112,15 +113,12 @@ class Trimmer {
       throw ArgumentError('GIF FPS cannot be greater than 30.');
     }
 
-    final frameIntervalMs =
-        (1000 / fpsGIF).round(); // Time between frames (in ms)
+    final frameIntervalMs = (1000 / fpsGIF).round(); // Time between frames (in ms)
 
     List<Uint8List> thumbnails = [];
 
     // Only generate thumbnails between start and end positions
-    for (int timeMs = startValue.toInt();
-        timeMs <= endValue.toInt();
-        timeMs += frameIntervalMs) {
+    for (int timeMs = startValue.toInt(); timeMs <= endValue.toInt(); timeMs += frameIntervalMs) {
       try {
         final thumbnail = await VideoThumbnail.thumbnailData(
           video: videoPath,
@@ -271,15 +269,10 @@ class Trimmer {
   }) async {
     final String videoPath = currentVideoFile!.path;
     final String videoName = basename(videoPath).split('.')[0];
-    final String fileExtension =
-        outputType == OutputType.gif ? '.gif' : extension(videoPath);
+    final String fileExtension = outputType == OutputType.gif ? '.gif' : extension(videoPath);
 
     // Formatting Date and Time
-    String dateTime = DateFormat.yMMMd()
-        .addPattern('-')
-        .add_Hms()
-        .format(DateTime.now())
-        .toString();
+    String dateTime = DateFormat.yMMMd().addPattern('-').add_Hms().format(DateTime.now()).toString();
 
     String outputPath;
     String formattedDateTime = dateTime.replaceAll(' ', '');
@@ -350,10 +343,8 @@ class Trimmer {
       await videoPlayerController!.pause();
       return false;
     } else {
-      if (videoPlayerController!.value.position.inMilliseconds >=
-          endValue.toInt()) {
-        await videoPlayerController!
-            .seekTo(Duration(milliseconds: startValue.toInt()));
+      if (videoPlayerController!.value.position.inMilliseconds >= endValue.toInt()) {
+        await videoPlayerController!.seekTo(Duration(milliseconds: startValue.toInt()));
         await videoPlayerController!.play();
         return true;
       } else {
